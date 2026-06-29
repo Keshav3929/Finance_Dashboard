@@ -12,6 +12,19 @@ import java.util.List;
 @Repository
 public interface RecordRepository extends JpaRepository<Record, Long> {
 
+    // NEW
+    List<Record> findByUserIdAndActiveTrue(Long userId);
+
+    // NEW
+    List<Record> findByUserIdAndActiveTrueAndCategoryIgnoreCase(
+            Long userId, String category
+    );
+
+    // NEW
+    List<Record> findByUserIdAndActiveTrueAndType(
+            Long userId, Type type
+    );
+
     List<Record> findByActiveTrue();
 
     List<Record> findByActiveTrueAndCategoryIgnoreCase(String category);
@@ -22,15 +35,23 @@ public interface RecordRepository extends JpaRepository<Record, Long> {
 
     List<Record> findTop5ByActiveTrueOrderByCreatedAtDesc();
 
-    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Record r WHERE r.type = 'INCOME' AND r.active = true")
+    List<Record> findByActiveTrueOrderByDateDesc();
+
+    @Query("SELECT COALESCE(SUM(r.amount),0) FROM Record r WHERE r.type='INCOME' AND r.active=true")
     Double getTotalIncome();
 
-    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Record r WHERE r.type = 'EXPENSE' AND r.active = true")
+    @Query("SELECT COALESCE(SUM(r.amount),0) FROM Record r WHERE r.type='EXPENSE' AND r.active=true")
     Double getTotalExpenses();
 
-    @Query("SELECT r.category, SUM(r.amount) FROM Record r WHERE r.active = true GROUP BY r.category")
+    @Query("SELECT r.category, SUM(r.amount) FROM Record r WHERE r.active=true GROUP BY r.category")
     List<Object[]> getCategoryWiseTotals();
 
-    @Query("SELECT MONTH(r.date), SUM(r.amount) FROM Record r WHERE r.active = true GROUP BY MONTH(r.date)")
+    @Query("""
+        SELECT MONTH(r.date), SUM(r.amount)
+        FROM Record r
+        WHERE r.active = true
+        AND r.date IS NOT NULL
+        GROUP BY MONTH(r.date)
+    """)
     List<Object[]> getMonthlyTrends();
 }

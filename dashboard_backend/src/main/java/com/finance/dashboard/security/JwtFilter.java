@@ -47,21 +47,24 @@ public class JwtFilter extends OncePerRequestFilter {
         // Extract and validate token
         String token = header.substring(7);
 
+        System.out.println("TOKEN RECEIVED = " + token);
+
         try {
+
             String email = jwtUtil.extractEmail(token);
+            System.out.println("EMAIL = " + email);
+
             String role = jwtUtil.extractRole(token);
+            System.out.println("ROLE = " + role);
 
-            // Set attributes for controller use
-            request.setAttribute("email", email);
-            request.setAttribute("role", role);
-
-            // Tell Spring Security this user is authenticated
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             email,
                             null,
                             List.of(new SimpleGrantedAuthority("ROLE_" + role))
                     );
+
+            System.out.println("AUTHORITY SET = ROLE_" + role);
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintWriter;
 
 @Service
 public class RecordService {
@@ -78,9 +81,11 @@ public class RecordService {
                 .filter(r -> category == null ||
                         r.getCategory().equalsIgnoreCase(category))
                 .filter(r -> startDate == null ||
-                        !r.getDate().isBefore(startDate))
+                        (r.getDate() != null &&
+                                !r.getDate().isBefore(startDate)))
                 .filter(r -> endDate == null ||
-                        !r.getDate().isAfter(endDate))
+                        (r.getDate() != null &&
+                                !r.getDate().isAfter(endDate)))
                 .filter(r -> search == null || (r.getDescription() != null &&
                         r.getDescription().toLowerCase()
                                 .contains(search.toLowerCase())))
@@ -103,8 +108,12 @@ public class RecordService {
 
     // Dashboard summary
     public Map<String, Double> getSummary() {
-        Double totalIncome = recordRepository.getTotalIncome();
-        Double totalExpenses = recordRepository.getTotalExpenses();
+        Double totalIncomeRaw = recordRepository.getTotalIncome();
+        Double totalExpensesRaw = recordRepository.getTotalExpenses();
+
+        // Guard against null results (e.g. no matching rows) to avoid NPE on unboxing
+        double totalIncome = totalIncomeRaw != null ? totalIncomeRaw : 0.0;
+        double totalExpenses = totalExpensesRaw != null ? totalExpensesRaw : 0.0;
         double netBalance = totalIncome - totalExpenses;
 
         Map<String, Double> summary = new HashMap<>();
@@ -119,23 +128,87 @@ public class RecordService {
         List<Object[]> results = recordRepository.getCategoryWiseTotals();
         Map<String, Double> categoryMap = new HashMap<>();
         for (Object[] row : results) {
-            categoryMap.put((String) row[0], (Double) row[1]);
+            if (row[0] == null || row[1] == null) {
+                continue;
+            }
+            String category = (String) row[0];
+            // Use Number cast instead of Double, since some JPA providers
+            // return BigDecimal/Long for SUM() aggregates, which would
+            // otherwise throw ClassCastException
+            double amount = ((Number) row[1]).doubleValue();
+            categoryMap.put(category, amount);
         }
         return categoryMap;
     }
 
     // Monthly trends
     public Map<Integer, Double> getMonthlyTrends() {
+
         List<Object[]> results = recordRepository.getMonthlyTrends();
+
         Map<Integer, Double> monthlyMap = new HashMap<>();
+
         for (Object[] row : results) {
-            monthlyMap.put((Integer) row[0], (Double) row[1]);
+
+            if (row[0] == null || row[1] == null) {
+                continue;
+            }
+
+            Integer month = ((Number) row[0]).intValue();
+            Double amount = ((Number) row[1]).doubleValue();
+
+            monthlyMap.put(month, amount);
         }
+
         return monthlyMap;
     }
 
     // Recent 5 records
     public List<Record> getRecentRecords() {
         return recordRepository.findTop5ByActiveTrueOrderByCreatedAtDesc();
+    }
+
+    // Export active records to CSV, most recent first
+    public ByteArrayInputStream exportCsv() {
+
+        List<Record> records =
+                recordRepository.findByActiveTrueOrderByDateDesc();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        // try-with-resources ensures the writer is always closed/flushed,
+        // even if something throws while building the CSV
+        try (PrintWriter writer = new PrintWriter(out)) {
+
+            // CSV header
+            writer.println("Id,Amount,Type,Category,Date,Description");
+
+            // CSV rows
+            for (Record r : records) {
+                writer.println(String.join(",",
+                        csvField(r.getId()),
+                        csvField(r.getAmount()),
+                        csvField(r.getType()),
+                        csvField(r.getCategory()),
+                        csvField(r.getDate()),
+                        csvField(r.getDescription())
+                ));
+            }
+        }
+
+        return new ByteArrayInputStream(out.toByteArray());
+    }
+
+    // Escapes a single CSV field: wraps in quotes and doubles any embedded
+    // quotes whenever the value contains a comma, quote, or newline.
+    private String csvField(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String s = value.toString();
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            s = "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 }

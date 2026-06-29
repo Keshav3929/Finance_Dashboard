@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 public class SecurityConfig {
@@ -22,6 +23,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> {})
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         //  Public endpoints
@@ -32,11 +34,22 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml"
                         ).permitAll()
+
                         // Role based access
                         .requestMatchers("/api/dashboard/**").hasAnyRole("VIEWER", "ANALYST", "ADMIN")
-                        .requestMatchers("/api/transactions").hasAnyRole("VIEWER", "ANALYST", "ADMIN")
-                        .requestMatchers("/api/transactions/**").hasAnyRole("ANALYST", "ADMIN")
+
+                        // Reads: everyone with a role can view transactions (incl. /page, /{id})
+                        .requestMatchers(HttpMethod.GET, "/api/transactions/**").hasAnyRole("VIEWER", "ANALYST", "ADMIN")
+
+                        // Writes: only ANALYST/ADMIN can create or edit
+                        .requestMatchers(HttpMethod.POST, "/api/transactions/**").hasAnyRole("ANALYST", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/transactions/**").hasAnyRole("ANALYST", "ADMIN")
+
+                        // Deletes/restores: ADMIN only, matching your frontend's delete button logic
+                        .requestMatchers(HttpMethod.DELETE, "/api/transactions/**").hasRole("ADMIN")
+
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 //  Register JWT filter
