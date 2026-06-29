@@ -1,0 +1,66 @@
+/* smooth button animation */
+
+button {
+    transition: all 0.3s ease;
+}
+
+button:hover {
+    transform: scale(1.03);
+}
+
+/* card animation */
+
+.card {
+    transition: all 0.3s ease;
+    border: none !important;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+/* cleaner page background */
+
+body {
+    background-color: #f8fafc;
+    font-family: Arial, sans-serif;
+}
+
+/* inputs */
+
+input,
+select {
+    border-radius: 10px !important;
+}
+
+/* tables */
+
+table {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+/* AUTH PAGES */
+
+.auth-page{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: linear-gradient(135deg,#0f172a,#2563eb);
+}
+
+.auth-card{
+    width:420px;
+    background:white;
+    padding:40px;
+    border-radius:20px;
+}
+
+.auth-card input{
+    height:45px;
+}
+
+.auth-card h2{
+    font-weight:bold;
+}

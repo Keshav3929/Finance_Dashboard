@@ -3,6 +3,7 @@ import { loginUser } from "../services/authService";
 import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
@@ -17,46 +18,63 @@ function Login() {
             localStorage.setItem("token", data.token);
             localStorage.setItem("role", data.role);
 
-            alert("Login Successful");
-
             navigate("/dashboard");
 
         } catch (error) {
             console.log(error);
-            alert("Invalid credentials");
+            alert("Login Failed");
         }
     };
 
     return (
-        <div className="container mt-5">
 
-            <h2>Login</h2>
+        <div className="auth-page">
 
-            <form onSubmit={handleLogin}>
+            <div className="auth-card shadow-lg">
 
-                <input
-                    className="form-control mb-3"
-                    type="email"
-                    placeholder="Enter email"
-                    onChange={(e) => setEmail(e.target.value)}
-                />
+                <h2 className="text-center mb-4">
+                    Welcome Back
+                </h2>
 
-                <input
-                    className="form-control mb-3"
-                    type="password"
-                    placeholder="Enter password"
-                    onChange={(e) => setPassword(e.target.value)}
-                />
+                <form onSubmit={handleLogin}>
 
-                <button className="btn btn-primary">
-                    Login
-                </button>
+                    <input
+                        className="form-control mb-3"
+                        type="email"
+                        placeholder="Email"
+                        onChange={(e) =>
+                            setEmail(e.target.value)
+                        }
+                    />
 
-            </form>
+                    <input
+                        className="form-control mb-3"
+                        type="password"
+                        placeholder="Password"
+                        onChange={(e) =>
+                            setPassword(e.target.value)
+                        }
+                    />
 
-            <p className="mt-3">
-                No account? <Link to="/register">Register</Link>
-            </p>
+                    <button
+                        className="btn btn-primary w-100 rounded-pill"
+                    >
+                        Login
+                    </button>
+
+                </form>
+
+                <p className="mt-4 text-center">
+
+                    New User?
+
+                    <Link to="/register">
+                        Register
+                    </Link>
+
+                </p>
+
+            </div>
 
         </div>
     );

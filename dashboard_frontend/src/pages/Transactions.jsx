@@ -5,29 +5,27 @@ import {
     addTransaction,
     deleteTransaction,
     updateTransaction,
-    getTransactionsPage
+    getTransactionsPage,
+    exportTransactionsCsv
 } from "../services/transactionService";
 
 import Navbar from "../components/Navbar";
 
 function Transactions() {
 
-    // all transactions list
     const [transactions, setTransactions] = useState([]);
 
-    // form states
     const [amount, setAmount] = useState("");
     const [type, setType] = useState("INCOME");
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
 
-    // edit mode
     const [editId, setEditId] = useState(null);
 
-    // FILTER STATES
     const [page, setPage] = useState(0);
     const [order, setOrder] = useState("desc");
     const [totalPages, setTotalPages] = useState(0);
+
     const [filterType, setFilterType] = useState("");
     const [filterCategory, setFilterCategory] = useState("");
     const [searchText, setSearchText] = useState("");
@@ -35,13 +33,10 @@ function Transactions() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
-    // tracks whether filters are currently applied
     const [filtersActive, setFiltersActive] = useState(false);
 
-    // role from localStorage
     const role = localStorage.getItem("role");
 
-    // load filtered transactions (no pagination)
     const loadTransactions = async () => {
         try {
             const data = await getTransactions(
@@ -51,16 +46,13 @@ function Transactions() {
                 startDate,
                 endDate
             );
-
             return data;
-
         } catch (error) {
             console.log(error);
             return null;
         }
     };
 
-    // load paginated transactions (no filters)
     const loadPaginatedTransactions = async () => {
         try {
             const data = await getTransactionsPage(
@@ -68,16 +60,13 @@ function Transactions() {
                 5,
                 order
             );
-
             return data;
-
         } catch (error) {
             console.log(error);
             return null;
         }
     };
 
-    // refresh whichever view is currently active (filtered or paginated)
     const refresh = async () => {
         if (filtersActive) {
             const data = await loadTransactions();
@@ -91,28 +80,19 @@ function Transactions() {
         }
     };
 
-    // load on page/order change (only relevant when not filtering)
     useEffect(() => {
         if (filtersActive) return;
 
-        let ignore = false;
-
         loadPaginatedTransactions().then((data) => {
-            if (!ignore && data) {
+            if (data) {
                 setTransactions(data.content);
                 setTotalPages(data.totalPages);
             }
         });
 
-        return () => {
-            ignore = true;
-        };
     }, [page, order, filtersActive]);
 
-
-    // add or update
     const handleSubmit = async (e) => {
-
         e.preventDefault();
 
         const payload = {
@@ -123,77 +103,48 @@ function Transactions() {
         };
 
         try {
-
-            // update mode
             if (editId) {
-
                 await updateTransaction(editId, payload);
                 setEditId(null);
-
             } else {
-
-                // add mode
                 await addTransaction(payload);
-
             }
 
-            // clear form
             setAmount("");
             setType("INCOME");
             setCategory("");
             setDescription("");
 
-            // refresh whichever view is active
             await refresh();
 
         } catch (error) {
-
             console.log(error);
-
         }
     };
 
-
-    // delete transaction
     const handleDelete = async (id) => {
-
         try {
-
             await deleteTransaction(id);
-
             await refresh();
-
         } catch (error) {
-
             console.log(error);
-
         }
     };
 
-
-    // edit transaction
     const handleEdit = (transaction) => {
-
         setEditId(transaction.id);
-
         setAmount(transaction.amount);
-
         setType(transaction.type);
-
         setCategory(transaction.category);
-
         setDescription(transaction.description);
     };
 
-
-    // apply filters
     const handleApplyFilters = async () => {
         setFiltersActive(true);
         const data = await loadTransactions();
         if (data) setTransactions(data);
     };
 
-    // clear filters and go back to paginated view
     const handleClearFilters = () => {
         setFilterType("");
         setFilterCategory("");
@@ -204,302 +155,299 @@ function Transactions() {
         setPage(0);
     };
 
+    const handleExportCsv = async () => {
+        try {
+            const blob = await exportTransactionsCsv();
+
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "transactions.csv";
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+        } catch (error) {
+            console.log(error);
+        }
+    };
 
     return (
         <>
             <Navbar />
 
-            <div className="mb-4">
-
-                <select
-                    className="form-control"
-                    value={order}
-                    onChange={(e) =>
-                        setOrder(e.target.value)
-                    }
-                >
-
-                    <option value="desc">
-                        Newest First
-                    </option>
-
-                    <option value="asc">
-                        Oldest First
-                    </option>
-
-                </select>
-
-            </div>
-
             <div className="container mt-5">
 
                 <h2>Transactions</h2>
 
-                <hr />
-
-                <h4>Filters</h4>
-
-                <div className="col-md-2">
-
-                    <label className="form-label">
-                        Start Date
-                    </label>
-
-                    <input
-                        type="date"
+                <div className="mb-4">
+                    <select
                         className="form-control"
-                        value={startDate}
-                        onChange={(e) =>
-                            setStartDate(e.target.value)
-                        }
-                    />
-
+                        value={order}
+                        onChange={(e) => setOrder(e.target.value)}
+                    >
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                    </select>
                 </div>
 
+                {/* FILTERS */}
 
-                <div className="col-md-2">
+                <div
+                    className="card shadow p-4 mb-4"
+                    style={{ borderRadius: "20px" }}
+                >
+                    <h4 className="mb-4">Search Filters</h4>
 
-                    <label className="form-label">
-                        End Date
-                    </label>
+                    <div className="row mb-3">
 
-                    <input
-                        type="date"
-                        className="form-control"
-                        value={endDate}
-                        onChange={(e) =>
-                            setEndDate(e.target.value)
-                        }
-                    />
+                        <div className="col-md-2">
+                            <label>Start Date</label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={startDate}
+                                onChange={(e) =>
+                                    setStartDate(e.target.value)
+                                }
+                            />
+                        </div>
 
+                        <div className="col-md-2">
+                            <label>End Date</label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={endDate}
+                                onChange={(e) =>
+                                    setEndDate(e.target.value)
+                                }
+                            />
+                        </div>
+
+                        <div className="col-md-3">
+                            <select
+                                className="form-control"
+                                value={filterType}
+                                onChange={(e) =>
+                                    setFilterType(e.target.value)
+                                }
+                            >
+                                <option value="">All Types</option>
+                                <option value="INCOME">Income</option>
+                                <option value="EXPENSE">Expense</option>
+                            </select>
+                        </div>
+
+                        <div className="col-md-2">
+                            <input
+                                className="form-control"
+                                placeholder="Category"
+                                value={filterCategory}
+                                onChange={(e) =>
+                                    setFilterCategory(e.target.value)
+                                }
+                            />
+                        </div>
+
+                        <div className="col-md-3">
+                            <input
+                                className="form-control"
+                                placeholder="Search Description"
+                                value={searchText}
+                                onChange={(e) =>
+                                    setSearchText(e.target.value)
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        className="btn btn-primary rounded-pill me-2"
+                        onClick={handleApplyFilters}
+                    >
+                        Apply Filters
+                    </button>
+
+                    {filtersActive && (
+                        <button
+                            className="btn btn-secondary rounded-pill"
+                            onClick={handleClearFilters}
+                        >
+                            Clear
+                        </button>
+                    )}
                 </div>
+
+                {/* FORM */}
+
+                {role !== "VIEWER" && (
+                    <div
+                        className="card shadow-lg p-4 mb-4"
+                        style={{ borderRadius: "20px" }}
+                    >
+                        <form onSubmit={handleSubmit}>
+
+                            <input
+                                className="form-control mb-3"
+                                placeholder="Amount"
+                                value={amount}
+                                onChange={(e) =>
+                                    setAmount(e.target.value)
+                                }
+                            />
+
+                            <select
+                                className="form-control mb-3"
+                                value={type}
+                                onChange={(e) =>
+                                    setType(e.target.value)
+                                }
+                            >
+                                <option>INCOME</option>
+                                <option>EXPENSE</option>
+                            </select>
+
+                            <input
+                                className="form-control mb-3"
+                                placeholder="Category"
+                                value={category}
+                                onChange={(e) =>
+                                    setCategory(e.target.value)
+                                }
+                            />
+
+                            <input
+                                className="form-control mb-3"
+                                placeholder="Description"
+                                value={description}
+                                onChange={(e) =>
+                                    setDescription(e.target.value)
+                                }
+                            />
+
+                            <button className="btn btn-success rounded-pill">
+                                {editId
+                                    ? "Update Transaction"
+                                    : "Add Transaction"}
+                            </button>
+
+                        </form>
+                    </div>
+                )}
+
+                {/* PAGINATION */}
 
                 {!filtersActive && (
-
-                    <div className="mt-4">
-
+                    <div className="mb-4">
                         <button
-                            className="btn btn-secondary me-2"
+                            className="btn btn-secondary me-2 rounded-pill"
                             disabled={page === 0}
-                            onClick={() =>
-                                setPage(page - 1)
-                            }
+                            onClick={() => setPage(page - 1)}
                         >
                             Previous
                         </button>
 
-                        <span>
-                         Page {page + 1} of {totalPages}
-                        </span>
+                        Page {page + 1} of {totalPages}
 
                         <button
-                            className="btn btn-secondary ms-2"
+                            className="btn btn-secondary ms-2 rounded-pill"
                             disabled={page === totalPages - 1}
-                            onClick={() =>
-                                setPage(page + 1)
-                            }
+                            onClick={() => setPage(page + 1)}
                         >
                             Next
                         </button>
-
                     </div>
-
                 )}
 
-                <div className="row mb-4">
+                {/* TABLE */}
 
-                    <div className="col-md-3">
+                <div className="d-flex justify-content-between mb-3">
 
-                        <select
-                            className="form-control"
-                            value={filterType}
-                            onChange={(e) =>
-                                setFilterType(e.target.value)
-                            }
-                        >
-                            <option value="">
-                                All Types
-                            </option>
+                    <h3>All Transactions</h3>
 
-                            <option value="INCOME">
-                                Income
-                            </option>
-
-                            <option value="EXPENSE">
-                                Expense
-                            </option>
-
-                        </select>
-
-                    </div>
-
-
-                    <div className="col-md-3">
-
-                        <input
-                            className="form-control"
-                            placeholder="Category"
-                            value={filterCategory}
-                            onChange={(e) =>
-                                setFilterCategory(e.target.value)
-                            }
-                        />
-
-                    </div>
-
-
-                    <div className="col-md-3">
-
-                        <input
-                            className="form-control"
-                            placeholder="Search Description"
-                            value={searchText}
-                            onChange={(e) =>
-                                setSearchText(e.target.value)
-                            }
-                        />
-
-                    </div>
-
-
-                    <div className="col-md-3">
-
-                        <button
-                            className="btn btn-primary me-2"
-                            onClick={handleApplyFilters}
-                        >
-                            Apply Filters
-                        </button>
-
-                        {filtersActive && (
-                            <button
-                                className="btn btn-outline-secondary"
-                                onClick={handleClearFilters}
-                            >
-                                Clear
-                            </button>
-                        )}
-
-                    </div>
+                    <button
+                        className="btn btn-success rounded-pill"
+                        onClick={handleExportCsv}
+                    >
+                        Download CSV
+                    </button>
 
                 </div>
 
-                <hr />
+                <div className="table-responsive">
 
-                {/* FORM hidden for VIEWER */}
+                    <table className="table table-hover table-bordered shadow">
 
-                {role !== "VIEWER" && (
+                        <thead className="table-dark">
+                        <tr>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
 
-                    <form onSubmit={handleSubmit}>
+                        <tbody>
 
-                        <input
-                            className="form-control mb-3"
-                            placeholder="Amount"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                        />
+                        {transactions.map((t) => (
 
+                            <tr key={t.id}>
 
-                        <select
-                            className="form-control mb-3"
-                            value={type}
-                            onChange={(e) => setType(e.target.value)}
-                        >
-                            <option>INCOME</option>
-                            <option>EXPENSE</option>
-                        </select>
+                                <td>₹ {t.amount}</td>
 
+                                <td>
+                                    <span
+                                        className={
+                                            t.type === "INCOME"
+                                                ? "badge bg-success"
+                                                : "badge bg-danger"
+                                        }
+                                    >
+                                        {t.type}
+                                    </span>
+                                </td>
 
-                        <input
-                            className="form-control mb-3"
-                            placeholder="Category"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                        />
+                                <td>{t.category}</td>
 
+                                <td>{t.description}</td>
 
-                        <input
-                            className="form-control mb-3"
-                            placeholder="Description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
+                                <td>
 
+                                    {role !== "VIEWER" && (
+                                        <button
+                                            className="btn btn-warning btn-sm me-2"
+                                            onClick={() => handleEdit(t)}
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
 
-                        <button className="btn btn-success">
+                                    {role === "ADMIN" && (
+                                        <button
+                                            className="btn btn-danger btn-sm"
+                                            onClick={() =>
+                                                handleDelete(t.id)
+                                            }
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
 
-                            {editId
-                                ? "Update Transaction"
-                                : "Add Transaction"}
+                                </td>
 
-                        </button>
+                            </tr>
 
-                    </form>
+                        ))}
 
-                )}
+                        </tbody>
 
+                    </table>
 
-                <hr />
-
-                <h3>All Transactions</h3>
-
-
-                {/* LIST */}
-
-                {transactions.map((t) => (
-
-                    <div
-                        key={t.id}
-                        className="border p-3 mb-3"
-                    >
-
-                        <p>
-                            <strong>Amount:</strong> ₹ {t.amount}
-                        </p>
-
-                        <p>
-                            <strong>Type:</strong> {t.type}
-                        </p>
-
-                        <p>
-                            <strong>Category:</strong> {t.category}
-                        </p>
-
-                        <p>
-                            <strong>Description:</strong> {t.description}
-                        </p>
-
-
-                        {/* EDIT hidden for VIEWER */}
-
-                        {role !== "VIEWER" && (
-
-                            <button
-                                className="btn btn-warning me-2"
-                                onClick={() => handleEdit(t)}
-                            >
-                                Edit
-                            </button>
-
-                        )}
-
-
-                        {/* DELETE only ADMIN */}
-
-                        {role === "ADMIN" && (
-
-                            <button
-                                className="btn btn-danger"
-                                onClick={() => handleDelete(t.id)}
-                            >
-                                Delete
-                            </button>
-
-                        )}
-
-                    </div>
-
-                ))}
+                </div>
 
             </div>
         </>
